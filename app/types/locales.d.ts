@@ -1,12 +1,6 @@
 export type TranslationKeys =
-  | '@@locale'
   | 'user_exists'
-  | '@user_exists'
   | 'user_does_not_exist'
-  | '@user_does_not_exist'
   | 'account_created'
-  | '@account_created'
   | 'server_error'
-  | '@server_error'
   | 'login_success'
-  | '@login_success'

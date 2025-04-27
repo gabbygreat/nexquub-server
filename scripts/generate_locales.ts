@@ -15,9 +15,9 @@ if (!fs.existsSync(typesDir)) {
 }
 
 const translations = JSON.parse(fs.readFileSync(localesPath, 'utf8'))
-const keys = Object.keys(translations)
+const keys = Object.keys(translations).filter((key) => !key.startsWith('@'))
 
-const typeDef = `export type TranslationKeys =\n  | "${keys.join('"\n  | "')}"\n`
+const typeDef = `export type TranslationKeys =\n  | '${keys.join("'\n  | '")}'\n`
 fs.writeFileSync(outputPath, typeDef, 'utf8')
 
 console.log('✅ Translation keys generated successfully!')
