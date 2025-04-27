@@ -1,4 +1,4 @@
-import { RegisterSource } from '#models/user'
+import { RegisterSource } from '#utils/enums'
 import vine, { SimpleMessagesProvider } from '@vinejs/vine'
 
 export const registrationValidator = vine.compile(

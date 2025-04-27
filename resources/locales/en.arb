@@ -1,0 +1,13 @@
+{
+  "@@locale": "en",
+  "user_exists": "An account with this email already exists.",
+  "@user_exists": {},
+  "user_does_not_exist": "This user does not exist.",
+  "@user_does_not_exist": {},
+  "account_created": "Account created successfully",
+  "@account_created": {},
+  "server_error": "Something went wrong. Please try again later.",
+  "@server_error": {},
+  "login_success": "Login Success",
+  "@login_success": {}
+}

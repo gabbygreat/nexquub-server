@@ -10,6 +10,7 @@ import LoginService from '#services/login_service'
 import AuthResponseDTO from '../response/user_response.js'
 import redis from '@adonisjs/redis/services/main'
 import * as crypto from 'node:crypto'
+import { RegisterSourceHelper } from '#utils/enums'
 
 @inject()
 export default class UsersController {
@@ -62,11 +63,9 @@ export default class UsersController {
       await request.validateUsing(googleLoginValidator)
       const { accessToken, source } = request.body()
       let user: User
-      if (source === 'google') {
-        user = await this.loginService.googleLoginService(accessToken)
-      } else {
-        return sendError(response, { message: 'Invalid source selected' })
-      }
+
+      const registerSource = RegisterSourceHelper.fromSource(source)
+      user = await this.loginService.socialLogin(registerSource, accessToken)
       const token = await User.accessTokens.create(user, [], { expiresIn: '100 days' })
       const userDTO: AuthResponseDTO = {
         user: user,
