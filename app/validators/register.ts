@@ -3,14 +3,19 @@ import vine, { SimpleMessagesProvider } from '@vinejs/vine'
 
 export const registrationValidator = vine.compile(
   vine.object({
+    firstName: vine.string().trim().minLength(2),
+    lastName: vine.string().trim().minLength(2),
     email: vine.string().trim().email(),
     password: vine.string().trim().minLength(6),
+    confirmPassword: vine.string().confirmed({
+      confirmationField: 'password',
+    }),
   })
 )
 
-export const googleLoginValidator = vine.compile(
+export const otherSourcesLoginValidator = vine.compile(
   vine.object({
-    access_token: vine.string(),
+    accessToken: vine.string(),
     source: vine.enum(Object.values(RegisterSource)),
   })
 )
@@ -20,7 +25,7 @@ registrationValidator.messagesProvider = new SimpleMessagesProvider({
   'password.minLength': 'Password must be at least 6 characters long',
 })
 
-googleLoginValidator.messagesProvider = new SimpleMessagesProvider({
-  'access_token.required': 'Access Token is required',
+otherSourcesLoginValidator.messagesProvider = new SimpleMessagesProvider({
+  'accessToken.required': 'Access Token is required',
   'source.required': 'Invalid source selected',
 })

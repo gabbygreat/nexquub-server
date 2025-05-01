@@ -4,3 +4,4 @@ export type TranslationKeys =
   | 'account_created'
   | 'server_error'
   | 'login_success'
+  | 'check_email'

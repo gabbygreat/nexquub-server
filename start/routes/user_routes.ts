@@ -1,13 +1,19 @@
 import router from '@adonisjs/core/services/router'
-const UsersController = () => import('#controllers/users_controller')
 import { middleware } from '#start/kernel'
+const UsersController = () => import('#controllers/users_controller')
 
 router
   .group(() => {
     router.post('register', [UsersController, 'register']).use(middleware.checkUserDoesNotExist())
     router.post('login', [UsersController, 'login']).use(middleware.checkUserExist())
     router.post('login-other-source', [UsersController, 'loginOtherSource'])
-    router.post('generate-otp', [UsersController, 'generateOtp'])
-    router.post('verify-otp', [UsersController, 'verifyOtp'])
+    router.post('request-otp', [UsersController, 'requestOtp']).use(middleware.checkUserExist())
+    router.post('verify-otp', [UsersController, 'verifyOtp']).use(middleware.checkUserExist())
+    router
+      .post('forgot-password', [UsersController, 'forgotPassword'])
+      .use(middleware.checkUserExist())
+    router
+      .post('reset-password', [UsersController, 'resetPassword'])
+      .use(middleware.checkUserExist())
   })
   .prefix('api/user')

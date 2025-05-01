@@ -18,9 +18,18 @@ class LocalizationService {
     return JSON.parse(fs.readFileSync(path.join(dirname, '../../resources/locales/en.arb'), 'utf8')) // Default to English
   }
 
-  static getMessage(lang: string, key: TranslationKeys) {
+  static getMessage(lang: string, key: TranslationKeys, params?: Record<string, string>) {
     this.translations[lang] ??= this.loadTranslations(lang)
-    return this.translations[lang]?.[key] ?? key // Return key if not found
+
+    let message = this.translations[lang]?.[key] ?? key
+
+    if (params) {
+      for (const [placeholder, value] of Object.entries(params)) {
+        message = message.replace(new RegExp(`{${placeholder}}`, 'g'), value)
+      }
+    }
+
+    return message
   }
 }
 

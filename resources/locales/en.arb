@@ -9,5 +9,14 @@
   "server_error": "Something went wrong. Please try again later.",
   "@server_error": {},
   "login_success": "Login Success",
-  "@login_success": {}
+  "@login_success": {},
+  "check_email": "Please, confirm the OTP sent to {email}",
+  "@check_email": {
+    "placeholders": {
+      "email": {
+        "description": "Email address of the reciepient",
+        "example": "gabby@gmail.com"
+      }
+    }
+  }
 }

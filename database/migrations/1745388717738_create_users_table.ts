@@ -12,6 +12,9 @@ export default class extends BaseSchema {
         .defaultTo(this.db.rawQuery('uuid_generate_v4()').knexQuery)
         .notNullable()
       table.string('email', 254).notNullable().unique()
+      table.string('first_name').notNullable()
+      table.string('last_name').notNullable()
+      table.boolean('verified').notNullable().defaultTo(false)
       table.enum('register_source', ['standard', 'google']).defaultTo('standard').notNullable()
       table.string('password').notNullable()
 
