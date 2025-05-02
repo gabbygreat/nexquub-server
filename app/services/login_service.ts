@@ -39,6 +39,17 @@ export default class LoginService {
   }
 
   private async handleGoogleLogin(accessToken: string): Promise<User> {
+    interface GoogleUser {
+      sub: string
+      name: string
+      given_name: string
+      family_name: string
+      picture: string
+      email: string
+      email_verified: boolean
+      locale: string
+    }
+
     const { data, status } = await axios.get(
       `https://www.googleapis.com/oauth2/v3/userinfo?access_token=${accessToken}`
     )
@@ -46,7 +57,13 @@ export default class LoginService {
 
     if (!data.email_verified) throw Error('Email not verified')
 
-    return this.findOrCreateUser(data.email, RegisterSource.GOOGLE)
+    const googleUser: GoogleUser = data
+    return this.findOrCreateUser(
+      googleUser.email,
+      RegisterSource.GOOGLE,
+      googleUser.given_name,
+      googleUser.family_name
+    )
   }
 
   private async handleFacebookLogin(accessToken: string): Promise<User> {
@@ -58,8 +75,9 @@ export default class LoginService {
     })
 
     if (!data.email) throw Error('No email returned from Facebook')
-
-    return this.findOrCreateUser(data.email, RegisterSource.FACEBOOK)
+    const [firstName, ...rest] = data.name?.split(' ') ?? []
+    const lastName = rest.join(' ')
+    return this.findOrCreateUser(data.email, RegisterSource.FACEBOOK, firstName, lastName)
   }
 
   private async handleLinkedInLogin(accessToken: string): Promise<User> {
@@ -74,7 +92,18 @@ export default class LoginService {
     const email = emailRes.data.elements?.[0]?.['handle~']?.emailAddress
     if (!email) throw Error('No email returned from LinkedIn')
 
-    return this.findOrCreateUser(email, RegisterSource.LINKEDIN)
+    // Get profile
+    const profileRes = await axios.get(
+      'https://api.linkedin.com/v2/me?projection=(localizedFirstName,localizedLastName)',
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    )
+
+    return this.findOrCreateUser(
+      email,
+      RegisterSource.LINKEDIN,
+      profileRes.data.localizedFirstName,
+      profileRes.data.localizedLastName
+    )
   }
 
   private async handleAppleLogin(accessToken: string): Promise<User> {
@@ -89,15 +118,26 @@ export default class LoginService {
     if (!payload) throw Error('Invalid Apple payload')
     if (!payload.email) throw Error('Invalid Apple payload')
 
-    return this.findOrCreateUser(payload.email, RegisterSource.APPLE)
+    // Get name from request if passed separately (you’ll need to modify the Flutter side to pass this)
+    const firstName = (idToken?.payload as any)?.firstName
+    const lastName = (idToken?.payload as any)?.lastName
+
+    return this.findOrCreateUser(payload.email, RegisterSource.APPLE, firstName, lastName)
   }
 
-  private async findOrCreateUser(email: string, source: RegisterSource): Promise<User> {
+  private async findOrCreateUser(
+    email: string,
+    source: RegisterSource,
+    firstName?: string,
+    lastName?: string
+  ): Promise<User> {
     const user = await User.findBy('email', email)
     if (user) return user
 
     const newUser = new User()
     newUser.email = email
+    newUser.firstName = firstName ?? 'Gabby'
+    newUser.lastName = lastName ?? 'Oranekwu'
     newUser.password = '**'
     newUser.registerSource = source
     await newUser.save()

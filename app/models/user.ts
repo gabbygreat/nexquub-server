@@ -39,5 +39,7 @@ export default class User extends compose(BaseModel, AuthFinder) {
   @column()
   declare registerSource: RegisterSource
 
-  static readonly accessTokens = DbAccessTokensProvider.forModel(User)
+  static readonly accessTokens = DbAccessTokensProvider.forModel(User, {
+    expiresIn: '20 second',
+  })
 }

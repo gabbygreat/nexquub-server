@@ -21,7 +21,7 @@ export default class UsersController {
       await request.validateUsing(registrationValidator)
       const { email, password, firstName, lastName } = request.body()
       const user = await User.create({ email: lowerCase(email), password, firstName, lastName })
-      await User.accessTokens.create(user, [], { expiresIn: '100 days' })
+      await User.accessTokens.create(user)
       const result = await OtpService.sendOtp(email)
       return sendSuccess(response, {
         message: LocalizationService.getMessage(request.lang, 'check_email', { email }),
@@ -46,7 +46,7 @@ export default class UsersController {
           data: { otpExpiry: result.otpExpiry },
         })
       }
-      const token = await User.accessTokens.create(user, [], { expiresIn: '100 days' })
+      const token = await User.accessTokens.create(user)
       const userDTO: UserResponseDTO = {
         user: user,
         token,
@@ -67,7 +67,7 @@ export default class UsersController {
       let user: User
       const registerSource = RegisterSourceHelper.fromSource(source)
       user = await this.loginService.socialLogin(registerSource, accessToken)
-      const token = await User.accessTokens.create(user, [], { expiresIn: '100 days' })
+      const token = await User.accessTokens.create(user)
       const userDTO: UserResponseDTO = {
         user: user,
         token,
@@ -77,7 +77,27 @@ export default class UsersController {
         data: userDTO,
       })
     } catch (error) {
-      return sendError(response, { code: 500, error: error })
+      return sendError(response, { error })
+    }
+  }
+
+  async tokenLogin({ auth, request, response }: HttpContext) {
+    try {
+      const user = auth.user
+      if (!user) {
+        return sendError(response, { message: 'Invalid user' })
+      }
+      const token = await User.accessTokens.create(user)
+      const userDTO: UserResponseDTO = {
+        user,
+        token,
+      }
+      return sendSuccess(response, {
+        message: LocalizationService.getMessage(request.lang, 'login_success'),
+        data: userDTO,
+      })
+    } catch (error) {
+      return sendError(response, { error })
     }
   }
 
@@ -113,7 +133,7 @@ export default class UsersController {
           const user = await User.findByOrFail('email', email)
           user.verified = true
           await user.save()
-          const token = await User.accessTokens.create(user, [], { expiresIn: '100 days' })
+          const token = await User.accessTokens.create(user)
           const userDTO: UserResponseDTO = {
             user,
             token,
@@ -127,7 +147,7 @@ export default class UsersController {
           return sendSuccess(response, { message: result.message })
       }
     } catch (error) {
-      return sendError(response, { error: error })
+      return sendError(response, { error })
     }
   }
 
