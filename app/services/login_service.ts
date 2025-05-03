@@ -1,5 +1,6 @@
 import User from '#models/user'
 import { RegisterSource } from '#utils/enums'
+import { Exception } from '@adonisjs/core/exceptions'
 import axios from 'axios'
 import jwt from 'jsonwebtoken'
 import jwksClient from 'jwks-rsa'
@@ -34,7 +35,7 @@ export default class LoginService {
         return this.handleLinkedInLogin(accessToken)
 
       default:
-        throw new Error('Unsupported provider')
+        throw new Exception('Unsupported provider', { status: 400 })
     }
   }
 
@@ -53,9 +54,9 @@ export default class LoginService {
     const { data, status } = await axios.get(
       `https://www.googleapis.com/oauth2/v3/userinfo?access_token=${accessToken}`
     )
-    if (status !== 200) throw Error('Network error')
+    if (status !== 200) throw new Exception('Network error', { status: 502 })
 
-    if (!data.email_verified) throw Error('Email not verified')
+    if (!data.email_verified) throw new Exception('Email not verified', { status: 400 })
 
     const googleUser: GoogleUser = data
     return this.findOrCreateUser(
@@ -74,7 +75,7 @@ export default class LoginService {
       },
     })
 
-    if (!data.email) throw Error('No email returned from Facebook')
+    if (!data.email) throw new Exception('No email returned from Facebook', { status: 400 })
     const [firstName, ...rest] = data.name?.split(' ') ?? []
     const lastName = rest.join(' ')
     return this.findOrCreateUser(data.email, RegisterSource.FACEBOOK, firstName, lastName)
@@ -90,7 +91,7 @@ export default class LoginService {
     )
 
     const email = emailRes.data.elements?.[0]?.['handle~']?.emailAddress
-    if (!email) throw Error('No email returned from LinkedIn')
+    if (!email) throw new Exception('No email returned from LinkedIn', { status: 400 })
 
     // Get profile
     const profileRes = await axios.get(
@@ -109,16 +110,15 @@ export default class LoginService {
   private async handleAppleLogin(accessToken: string): Promise<User> {
     const idToken = jwt.decode(accessToken, { complete: true })
     const kid = idToken?.header.kid
-    if (!kid) throw Error('Invalid Apple token')
+    if (!kid) throw new Exception('Invalid Apple token', { status: 400 })
 
     const appleKey = await this.getAppleSignInKey(kid)
-    if (!appleKey) throw Error('Could not retrieve Apple signing key')
+    if (!appleKey) throw new Exception('Could not retrieve Apple signing key', { status: 500 })
 
     const payload: PayloadType | null = await this.verifyJWT(accessToken, appleKey)
-    if (!payload) throw Error('Invalid Apple payload')
-    if (!payload.email) throw Error('Invalid Apple payload')
+    if (!payload) throw new Exception('Invalid Apple payload', { status: 401 })
+    if (!payload.email) throw new Exception('Email not returned from Apple', { status: 400 })
 
-    // Get name from request if passed separately (you’ll need to modify the Flutter side to pass this)
     const firstName = (idToken?.payload as any)?.firstName
     const lastName = (idToken?.payload as any)?.lastName
 
@@ -131,8 +131,8 @@ export default class LoginService {
     firstName?: string,
     lastName?: string
   ): Promise<User> {
-    const user = await User.findBy('email', email)
-    if (user) return user
+    const user = await User.withTrashed().where('email', email).first()
+    if (user) return user as User
 
     const newUser = new User()
     newUser.email = email
@@ -140,6 +140,7 @@ export default class LoginService {
     newUser.lastName = lastName ?? 'Oranekwu'
     newUser.password = '**'
     newUser.registerSource = source
+    newUser.verified = true
     await newUser.save()
     return newUser
   }

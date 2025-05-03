@@ -17,6 +17,7 @@ export default class extends BaseSchema {
       table.boolean('verified').notNullable().defaultTo(false)
       table.enum('register_source', ['standard', 'google']).defaultTo('standard').notNullable()
       table.string('password').notNullable()
+      table.timestamp('deleted_at').nullable()
 
       table.timestamp('created_at').notNullable()
       table.timestamp('updated_at').nullable()

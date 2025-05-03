@@ -7,9 +7,7 @@ export const registrationValidator = vine.compile(
     lastName: vine.string().trim().minLength(2),
     email: vine.string().trim().email(),
     password: vine.string().trim().minLength(6),
-    confirmPassword: vine.string().confirmed({
-      confirmationField: 'password',
-    }),
+    messagingToken: vine.string().optional(),
   })
 )
 
@@ -17,6 +15,7 @@ export const otherSourcesLoginValidator = vine.compile(
   vine.object({
     accessToken: vine.string(),
     source: vine.enum(Object.values(RegisterSource)),
+    messagingToken: vine.string().nullable().optional(),
   })
 )
 

@@ -10,6 +10,7 @@
 
 import router from '@adonisjs/core/services/router'
 import server from '@adonisjs/core/services/server'
+import DeleteExpiredUsers from '../app/tasks/delete_expired_users.js'
 
 /**
  * The error handler is used to convert an exception
@@ -37,6 +38,7 @@ router.use([
   () => import('@adonisjs/auth/initialize_auth_middleware'),
 ])
 
+DeleteExpiredUsers.handle()
 /**
  * Named middleware collection must be explicitly assigned to
  * the routes or the routes group.
@@ -44,5 +46,7 @@ router.use([
 export const middleware = router.named({
   checkUserDoesNotExist: () => import('#middleware/check_user_does_not_exist_middleware'),
   checkUserExist: () => import('#middleware/check_user_exist_middleware'),
+  checkTrashUserExist: () => import('#middleware/check_trash_user_exist_middleware'),
+  checkUserIsVerified: () => import('#middleware/check_user_is_verified_middleware'),
   auth: () => import('#middleware/auth_middleware'),
 })

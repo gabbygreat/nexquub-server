@@ -13,12 +13,11 @@ export function sendError(
     errorDetail.message ??
     errorDetail.error?.response?.data.error_description ??
     errorDetail.error?.message
-
   let status = errorDetail.code ?? errorDetail.error?.status ?? 400
 
   if (errorDetail.error?.code === '22P02' || status === 404) {
     status = 404
-    message = "The item you're looking for does not exist."
+    message = message ?? "The item you're looking for does not exist."
   }
   if (errorDetail.error?.status) {
     status = errorDetail.error.status

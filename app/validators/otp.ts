@@ -4,6 +4,8 @@ export enum OtpVerificationType {
   ACCOUNT_CREATION = 'accountCreation',
   FORGOT_PASSWORD = 'forgotPassword',
 }
+
+
 export const otpValidator = vine.compile(
   vine.object({
     email: vine.string().trim().email(),
@@ -11,6 +13,12 @@ export const otpValidator = vine.compile(
       .string()
       .trim()
       .regex(/^\d{4}$/),
+    type: vine.enum(Object.values(OtpVerificationType)),
+  })
+)
+export const requestOTPValidator = vine.compile(
+  vine.object({
+    email: vine.string().trim().email(),
     type: vine.enum(Object.values(OtpVerificationType)),
   })
 )

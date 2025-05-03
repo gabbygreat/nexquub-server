@@ -4,11 +4,16 @@ import redis from '@adonisjs/redis/services/main'
 export default class OtpService {
   private static readonly otpExpiry = 60 * 5 // 5mins
 
-  public static async sendOtp(email: string, expiry: number = this.otpExpiry) {
+  public static async sendOtp(
+    email: string,
+    param: { expiry?: number; forceResend?: boolean } = {}
+  ) {
     try {
+      const { expiry = this.otpExpiry, forceResend = false } = param
+
       const existingOTP = await redis.get(`otp:${email}`)
 
-      if (existingOTP) {
+      if (!forceResend && existingOTP) {
         return {
           success: false,
           message: 'OTP already sent. Please wait for the current OTP to expire',
@@ -16,6 +21,7 @@ export default class OtpService {
       }
 
       const otp = Math.floor(1000 + Math.random() * 9000).toString()
+      console.log(otp)
       const otpHash = crypto.createHash('sha256').update(otp).digest('hex')
 
       await redis.setex(`otp:${email}`, expiry, otpHash)

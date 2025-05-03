@@ -11,11 +11,11 @@ export default class CheckUserDoesNotExistMiddleware {
       await request.validateUsing(emailValidator)
       const { email } = request.body()
       // Check if user already exists
-      const existingUser = await User.findBy('email', email)
+      const existingUser = await User.withTrashed().where('email', email).first()
       if (existingUser) {
         return sendError(response, {
           message: LocalizationService.getMessage(request.lang, 'user_exists'),
-          code: 400,
+          code: 409,
         })
       }
     } catch (error) {

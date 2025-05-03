@@ -4,14 +4,15 @@ import { inject } from '@adonisjs/core'
 import { HttpContext } from '@adonisjs/core/http'
 import { lowerCase, sendError, sendSuccess } from '../utils/utils.js'
 import LocalizationService from '#services/localization_service'
-import { loginValidator } from '#validators/login'
+import { loginValidator, tokenLoginValidator } from '#validators/login'
 import LoginService from '#services/login_service'
 import UserResponseDTO from '../response/user_response.js'
 import { RegisterSourceHelper } from '#utils/enums'
 import OtpService from '#services/otp_service'
-import { otpValidator, OtpVerificationType } from '#validators/otp'
+import { otpValidator, OtpVerificationType, requestOTPValidator } from '#validators/otp'
 import { resetPasswordValidator } from '#validators/reset_password'
 import { emailValidator } from '#validators/email'
+import OTPResponseDTO from '../response/otp_response.js'
 
 @inject()
 export default class UsersController {
@@ -19,13 +20,25 @@ export default class UsersController {
   async register({ request, response }: HttpContext) {
     try {
       await request.validateUsing(registrationValidator)
-      const { email, password, firstName, lastName } = request.body()
+      const { email, password, firstName, lastName, messagingToken } = request.body()
       const user = await User.create({ email: lowerCase(email), password, firstName, lastName })
+      if (messagingToken) {
+        await user.related('messagingTokens').create({
+          token: messagingToken,
+        })
+      }
       await User.accessTokens.create(user)
       const result = await OtpService.sendOtp(email)
+
+      const otpResponse: OTPResponseDTO = {
+        email: lowerCase(email),
+        otp: result.otp!,
+        otpExpiry: result.otpExpiry!,
+        type: OtpVerificationType.ACCOUNT_CREATION,
+      }
       return sendSuccess(response, {
         message: LocalizationService.getMessage(request.lang, 'check_email', { email }),
-        data: { otp: result.otp, otpExpiry: result.otpExpiry },
+        data: otpResponse,
         code: 201,
       })
     } catch (error) {
@@ -36,14 +49,18 @@ export default class UsersController {
   async login({ request, response }: HttpContext) {
     try {
       await request.validateUsing(loginValidator)
-      const { email, password } = request.body()
-      const user = await User.verifyCredentials(lowerCase(email), password)
-      if (!user.verified) {
-        const result = await OtpService.sendOtp(email)
+      const { email, password, messagingToken } = request.body()
+      const user = await User.verifyCredential(lowerCase(email), password)
+      if (messagingToken) {
+        await user.related('messagingTokens').create({
+          token: messagingToken,
+        })
+      }
+      const restored = await user.restoreIfNotExpired()
+      if (!restored) {
         return sendError(response, {
-          message: `Account not verified. Please verify your email to continue. ${result.otp}`,
-          code: 403,
-          data: { otpExpiry: result.otpExpiry },
+          message: 'Account permanently deleted, please, create a new account',
+          code: 401,
         })
       }
       const token = await User.accessTokens.create(user)
@@ -63,10 +80,22 @@ export default class UsersController {
   async loginOtherSource({ request, response }: HttpContext) {
     try {
       await request.validateUsing(otherSourcesLoginValidator)
-      const { accessToken, source } = request.body()
+      const { accessToken, source, messagingToken } = request.body()
       let user: User
       const registerSource = RegisterSourceHelper.fromSource(source)
       user = await this.loginService.socialLogin(registerSource, accessToken)
+      if (messagingToken) {
+        await user.related('messagingTokens').create({
+          token: messagingToken,
+        })
+      }
+      const restored = await user.restoreIfNotExpired()
+      if (!restored) {
+        return sendError(response, {
+          message: 'Account permanently deleted, please, create a new account',
+          code: 401,
+        })
+      }
       const token = await User.accessTokens.create(user)
       const userDTO: UserResponseDTO = {
         user: user,
@@ -83,9 +112,23 @@ export default class UsersController {
 
   async tokenLogin({ auth, request, response }: HttpContext) {
     try {
+      await request.validateUsing(tokenLoginValidator)
       const user = auth.user
       if (!user) {
         return sendError(response, { message: 'Invalid user' })
+      }
+      const { messagingToken } = request.body()
+      if (messagingToken) {
+        await user.related('messagingTokens').create({
+          token: messagingToken,
+        })
+      }
+      const restored = await user.restoreIfNotExpired()
+      if (!restored) {
+        return sendError(response, {
+          message: 'Account permanently deleted, please, create a new account',
+          code: 401,
+        })
       }
       const token = await User.accessTokens.create(user)
       const userDTO: UserResponseDTO = {
@@ -102,7 +145,8 @@ export default class UsersController {
   }
 
   public async requestOtp({ request, response }: HttpContext) {
-    const { email } = request.body()
+    await request.validateUsing(requestOTPValidator)
+    const { email, type } = request.body()
 
     const result = await OtpService.sendOtp(email)
 
@@ -110,9 +154,15 @@ export default class UsersController {
       return sendError(response, { message: result.message })
     }
 
+    const otpResponse: OTPResponseDTO = {
+      email: lowerCase(email),
+      otp: result.otp!,
+      otpExpiry: result.otpExpiry!,
+      type: type,
+    }
     return sendSuccess(response, {
       message: result.message,
-      data: { otp: result.otp, otpExpiry: result.otpExpiry },
+      data: otpResponse,
     })
   }
 
@@ -155,13 +205,20 @@ export default class UsersController {
     try {
       await request.validateUsing(emailValidator)
       const { email } = request.body()
-      const result = await OtpService.sendOtp(email, 600)
+      const result = await OtpService.sendOtp(email, { expiry: 600, forceResend: true })
       if (!result.success) {
         return sendError(response, { message: result.message })
       }
+
+      const otpResponse: OTPResponseDTO = {
+        email: lowerCase(email),
+        otp: result.otp!,
+        otpExpiry: result.otpExpiry!,
+        type: OtpVerificationType.FORGOT_PASSWORD,
+      }
       return sendSuccess(response, {
         message: LocalizationService.getMessage(request.lang, 'check_email', { email }),
-        data: { otp: result.otp, otpExpiry: result.otpExpiry },
+        data: otpResponse,
       })
     } catch (error) {
       return sendError(response, { error })
@@ -184,6 +241,32 @@ export default class UsersController {
 
       return sendSuccess(response, {
         message: 'Password has been reset successfully.',
+      })
+    } catch (error) {
+      return sendError(response, { error })
+    }
+  }
+
+  public async logout({ auth, response }: HttpContext) {
+    try {
+      await auth.use('api').invalidateToken()
+      return sendSuccess(response, {
+        message: 'Logged out successfully',
+      })
+    } catch (error) {
+      return sendError(response, { error })
+    }
+  }
+
+  public async deleteUser({ auth, response }: HttpContext) {
+    try {
+      const user = auth.user
+      if (!user) {
+        return sendError(response, { message: 'Invalid user' })
+      }
+      await user.delete()
+      return sendSuccess(response, {
+        message: `Account deactivated, log back in within ${User.ACCOUNT_DELETION_GRACE_DAYS}days to re-activate your account`,
       })
     } catch (error) {
       return sendError(response, { error })
